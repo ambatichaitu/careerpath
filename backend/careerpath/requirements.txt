@@ -1,0 +1,19 @@
+# CareerPath FastAPI Backend Dependencies
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.1
+# File Processing & Safety
+pymupdf>=1.23.0
+pillow>=10.0.0
+pandas>=2.2.0
+
+# Authentication & Cloud Services
+firebase-admin>=6.5.0
+supabase>=2.4.0
+
+# Testing & HTTP Clients
+pytest>=8.0.0
+httpx>=0.27.0

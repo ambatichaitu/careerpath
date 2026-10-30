@@ -1,0 +1,100 @@
+# ==============================================================================
+# CareerPath Root .gitignore - Public Open-Source Repository Rules
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Environment Variables, Secrets & Private Credentials (CRITICAL)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.p12
+*service_account*.json
+*.keystore
+*.jks
+
+# ------------------------------------------------------------------------------
+# 2. Legacy Student Records & Backup Files (Data Privacy)
+# ------------------------------------------------------------------------------
+users_db.json
+**/users_db.json
+*.bak
+*.backup
+*.log
+firebase-debug.log*
+
+# ------------------------------------------------------------------------------
+# 3. Python Runtime, Caches & Virtual Environments
+# ------------------------------------------------------------------------------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+.pytest_cache/
+**/.pytest_cache/
+
+# ------------------------------------------------------------------------------
+# 4. Flutter & Dart Build Outputs
+# ------------------------------------------------------------------------------
+.dart_tool/
+**/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/build/
+coverage/
+doc/api/
+*.symbols
+*.map.json
+
+# ------------------------------------------------------------------------------
+# 5. Android & iOS Platform Build Artifacts
+# ------------------------------------------------------------------------------
+.gradle/
+**/.gradle/
+**/local.properties
+ios/Flutter/.last_build_id
+ios/Pods/
+
+# ------------------------------------------------------------------------------
+# 6. IDE, Editor & OS Metadata
+# ------------------------------------------------------------------------------
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
+ehthumbs.db
+*.swp
+*.swo
+*~
+
+# ------------------------------------------------------------------------------
+# 7. Archives, Binaries & Temporary Artifacts
+# ------------------------------------------------------------------------------
+*.zip
+*.tar.gz
+*.apk
+**/*.apk
+*.aab
+**/*.aab
+careerpath using mongodb/
+cloudflared*
+scratch/
+tmp/
