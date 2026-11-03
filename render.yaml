@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: careerpath-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend/careerpath
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: ENVIRONMENT
+        value: production
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "true"
+      - key: FIREBASE_PROJECT_ID
+        value: careerpath-26fa0
+      - key: ALLOWED_ORIGINS
+        value: https://careerpath-26fa0.web.app,https://careerpath-26fa0.firebaseapp.com
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
