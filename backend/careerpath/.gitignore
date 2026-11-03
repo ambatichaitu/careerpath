@@ -88,3 +88,5 @@ ehthumbs.db
 cloudflared*
 scratch/
 tmp/
+.firebase/
+**/.firebase/

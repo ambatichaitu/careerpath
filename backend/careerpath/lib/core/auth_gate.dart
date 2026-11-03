@@ -61,8 +61,8 @@ class _AuthGateState extends State<AuthGate> {
         final activeUser = _authService.currentUser ?? user;
 
         // State C: Authenticated but email not yet verified.
-        // Mandatory in Release builds; in Development builds, active by default
-        // unless explicitly disabled via --dart-define=BYPASS_EMAIL_VERIFICATION_DEV=true.
+        // Active ONLY if AuthConfig.isEmailVerificationRequired is true.
+        // When optional (default), authenticated students proceed directly to onboarding / dashboard.
         if (!activeUser.emailVerified && AuthConfig.isEmailVerificationRequired) {
           return EmailVerificationScreen(
             onVerified: () => setState(() {}),

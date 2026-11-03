@@ -165,21 +165,20 @@ def test_create_and_read_student_profile():
         app.dependency_overrides.clear()
 
 def test_backend_email_verification_policy():
-    """Verify backend email verification policy enforcement across dev and prod configurations."""
+    """Verify backend email verification policy across enforced and optional configurations."""
     import security
     from fastapi import HTTPException
     import asyncio
 
-    # 1. Dev configuration: defaults to False
-    os.environ["ENVIRONMENT"] = "development"
+    # 1. Default configuration: enforced by default for production safety (returns True)
     os.environ.pop("REQUIRE_EMAIL_VERIFICATION", None)
-    assert security.is_email_verification_enforced() is False
-
-    # 2. Production configuration: defaults to True
-    os.environ["ENVIRONMENT"] = "production"
     assert security.is_email_verification_enforced() is True
 
-    # 3. Explicit override
+    # 2. Explicit optional override
+    os.environ["REQUIRE_EMAIL_VERIFICATION"] = "false"
+    assert security.is_email_verification_enforced() is False
+
+    # 3. Explicit enforced override
     os.environ["REQUIRE_EMAIL_VERIFICATION"] = "true"
     assert security.is_email_verification_enforced() is True
 
@@ -204,9 +203,37 @@ def test_backend_email_verification_policy():
     passed = asyncio.run(security.get_current_verified_user(verified))
     assert passed.uid == "verified_uid_999"
 
-    # Reset environment back to development
+    # When optional, unverified user passes without error and retains genuine email_verified=False
+    os.environ["REQUIRE_EMAIL_VERIFICATION"] = "false"
+    passed_unverified = asyncio.run(security.get_current_verified_user(unverified))
+    assert passed_unverified.uid == "unverified_uid_999"
+    assert passed_unverified.email_verified is False
+
+    # Reset environment cleanly
     os.environ["ENVIRONMENT"] = "development"
     os.environ.pop("REQUIRE_EMAIL_VERIFICATION", None)
+
+def test_unverified_user_allowed_when_optional():
+    """Verify that authenticated unverified accounts can access endpoints when verification is optional."""
+    async def mock_unverified_student():
+        return AuthenticatedUser(
+            uid="unverified_student_456",
+            email="student@college.edu",
+            email_verified=False,
+            claims={"uid": "unverified_student_456"}
+        )
+
+    os.environ["REQUIRE_EMAIL_VERIFICATION"] = "false"
+    app.dependency_overrides[get_current_user] = mock_unverified_student
+    try:
+        # Student exists check; either 200 with profile or 404 onboarding required, but NEVER 403
+        res = client.get("/api/v1/profile")
+        assert res.status_code in (200, 404)
+        if res.status_code == 404:
+            assert "profile not found" in res.json()["detail"].lower()
+    finally:
+        app.dependency_overrides.clear()
+        os.environ.pop("REQUIRE_EMAIL_VERIFICATION", None)
 
 def test_unverified_user_blocked_from_endpoints_when_enforced():
     """Verify that private FastAPI routes reject unverified accounts with HTTP 403 when email verification is enforced."""

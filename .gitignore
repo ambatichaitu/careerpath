@@ -98,3 +98,5 @@ careerpath using mongodb/
 cloudflared*
 scratch/
 tmp/
+.firebase/
+**/.firebase/

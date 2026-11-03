@@ -18,6 +18,7 @@ class AppConfig {
   static const String defaultLocalUrl = 'http://127.0.0.1:8000';
   static const String defaultLanUrl = 'http://192.168.1.5:8000';
   static const String defaultEmulatorUrl = 'http://10.0.2.2:8000';
+  static const String defaultProductionUrl = 'https://careerpath-api-xf3m.onrender.com';
 
   static String _cachedBaseUrl = '';
 
@@ -29,6 +30,9 @@ class AppConfig {
     }
     if (_envBackendUrl.isNotEmpty) {
       return _envBackendUrl;
+    }
+    if (kReleaseMode && kIsWeb) {
+      return defaultProductionUrl;
     }
     if (kIsWeb) {
       return defaultLocalUrl;
@@ -56,6 +60,10 @@ class AppConfig {
       return _cachedBaseUrl;
     }
 
+    if (kReleaseMode && kIsWeb) {
+      _cachedBaseUrl = defaultProductionUrl;
+      return _cachedBaseUrl;
+    }
     if (kIsWeb) {
       _cachedBaseUrl = defaultLocalUrl;
       return _cachedBaseUrl;

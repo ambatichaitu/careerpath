@@ -17,16 +17,16 @@ class AuthenticatedUser(BaseModel):
 def is_email_verification_enforced() -> bool:
     """
     Checks if email verification is mandatory in the current environment.
-    Strictly enforced in production environments, or when REQUIRE_EMAIL_VERIFICATION is 'true'.
-    In development environments, default is False so student testing is not blocked by SMTP delivery delays.
+    Enforced by default (returns True) for production security.
+    Can be explicitly configured to 'false' or '0' for academic demonstrations or
+    environments where institutional quarantine filters prevent verification delivery.
     """
-    env = os.getenv("ENVIRONMENT", "development").lower()
     override = os.getenv("REQUIRE_EMAIL_VERIFICATION", "").lower()
-    if override in ("true", "1"):
-        return True
     if override in ("false", "0"):
         return False
-    return env == "production"
+    if override in ("true", "1"):
+        return True
+    return True
 
 # ------------------------------------------------------------------------------
 # Firebase Admin SDK Initialization

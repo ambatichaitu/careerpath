@@ -32,6 +32,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _profileImageUrl;
   bool _isUpdatingImage = false;
   JobRole? _selectedCareer;
+  bool _dismissedEmailBanner = false;
+  bool _isSendingVerification = false;
 
   @override
   void initState() {
@@ -336,6 +338,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildUserHeroBanner(maxScore),
             const SizedBox(height: 18),
 
+            // Optional Email Verification Action Banner
+            _buildOptionalEmailVerificationBanner(),
+
             // Target Career Goal Card (if selected)
             if (_selectedCareer != null) ...[
               _buildSelectedCareerBanner(_selectedCareer!),
@@ -576,6 +581,84 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // -------------------------------------------------------------
   // User Hero Banner
   // -------------------------------------------------------------
+
+  // -------------------------------------------------------------
+  // Optional Email Verification Action Banner
+  // -------------------------------------------------------------
+  Widget _buildOptionalEmailVerificationBanner() {
+    final user = AuthService().currentUser;
+    if (user == null || user.emailVerified || _dismissedEmailBanner) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.mark_email_unread_outlined, color: Color(0xFFD97706), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Email Verification Optional',
+                  style: AppTheme.fontHeading(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF92400E)),
+                ),
+                Text(
+                  'Your account is active. You can verify your email anytime to secure password recovery.',
+                  style: AppTheme.fontBody(fontSize: 11, color: const Color(0xFFB45309)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _isSendingVerification ? null : () async {
+              setState(() => _isSendingVerification = true);
+              try {
+                await user.sendEmailVerification();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Verification link sent! Check your inbox or spam folder if delayed.'),
+                      backgroundColor: AppTheme.secondaryTeal,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Notice: ${e.toString().replaceAll("Exception: ", "")}'),
+                      backgroundColor: AppTheme.accentRose,
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) setState(() => _isSendingVerification = false);
+              }
+            },
+            child: _isSendingVerification
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Send Link', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFD97706))),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFB45309)),
+            tooltip: 'Dismiss',
+            onPressed: () => setState(() => _dismissedEmailBanner = true),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildUserHeroBanner(int maxScore) {
     return Container(
       padding: const EdgeInsets.all(20),

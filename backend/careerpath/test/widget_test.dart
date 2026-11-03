@@ -327,18 +327,21 @@ void main() {
     expect(find.text('Ask CareerPath AI'), findsOneWidget);
   });
 
-  test('AuthConfig: Verification policy defaults to mandatory and guarantees production safety', () {
+  test('AuthConfig: Verification policy defaults to enforced (true) for production safety and can be overridden', () {
     AuthConfig.testVerificationOverride = null;
     expect(AuthConfig.securityModeDescription, isNotEmpty);
-
-    // Test programmatic override behavior
-    AuthConfig.testVerificationOverride = true;
+    // By default, production safety requires email verification unless explicitly overridden
     expect(AuthConfig.isEmailVerificationRequired, isTrue);
     expect(AuthConfig.isDevBypassActive, isFalse);
 
+    // Test programmatic override behavior
     AuthConfig.testVerificationOverride = false;
     expect(AuthConfig.isEmailVerificationRequired, isFalse);
     expect(AuthConfig.isDevBypassActive, isTrue);
+
+    AuthConfig.testVerificationOverride = true;
+    expect(AuthConfig.isEmailVerificationRequired, isTrue);
+    expect(AuthConfig.isDevBypassActive, isFalse);
 
     // Reset override cleanly
     AuthConfig.testVerificationOverride = null;
