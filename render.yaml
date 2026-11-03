@@ -13,7 +13,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: REQUIRE_EMAIL_VERIFICATION
-        value: "false"
+        value: "true"
       - key: FIREBASE_PROJECT_ID
         value: careerpath-26fa0
       - key: ALLOWED_ORIGINS

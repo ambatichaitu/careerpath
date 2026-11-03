@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../core/auth_config.dart';
 import '../core/auth_gate.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
@@ -302,11 +301,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       if (!mounted) return;
       setState(() => _loading = false);
-      if (AuthConfig.isEmailVerificationRequired) {
-        _showSnackBar('Account created! A verification link has been sent to your email.');
-      } else {
-        _showSnackBar('Account created! Proceeding to academic onboarding.');
-      }
+      _showSnackBar('Account created! A verification link has been sent to your email.');
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const AuthGate()),
         (route) => false,

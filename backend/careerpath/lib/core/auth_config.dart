@@ -4,17 +4,13 @@ import 'package:flutter/foundation.dart';
 ///
 /// Controls environment-specific security policies.
 class AuthConfig {
-  /// Internal test override to allow widget and unit tests to verify both
-  /// enforced and optional verification modes deterministically.
+  /// Internal test override to allow widget and unit tests to verify
+  /// verification policy enforcement deterministically.
   @visibleForTesting
   static bool? testVerificationOverride;
 
   /// Compile-time configuration for mandatory email verification.
-  /// Defaults to `true` for standard production safety.
-  ///
-  /// Can be explicitly set to `false` for academic demonstrations or institutional
-  /// testing where college mail servers delay/filter verification emails:
-  /// `--dart-define=REQUIRE_EMAIL_VERIFICATION=false`
+  /// Mandatory (`true`) by default for production security.
   static const bool _requireEmailVerification = bool.fromEnvironment(
     'REQUIRE_EMAIL_VERIFICATION',
     defaultValue: true,
@@ -23,9 +19,10 @@ class AuthConfig {
   /// Whether email verification is mandatory for the current session.
   ///
   /// POLICY:
-  /// - Defaults to `true` (mandatory email verification).
-  /// - Can be explicitly configured to `false` at build time via:
-  ///   `--dart-define=REQUIRE_EMAIL_VERIFICATION=false`
+  /// - Mandatory (`true`) in production and release builds.
+  /// - Unverified email/password users are prevented from accessing onboarding,
+  ///   dashboard, career recommendations, or other protected features.
+  /// - Google Sign-In users whose Firebase identity is verified proceed normally.
   static bool get isEmailVerificationRequired {
     if (testVerificationOverride != null) {
       return testVerificationOverride!;
@@ -33,7 +30,7 @@ class AuthConfig {
     return _requireEmailVerification;
   }
 
-  /// Whether optional email verification mode is active.
+  /// Whether test bypass is active (used by automated tests only).
   static bool get isDevBypassActive => !isEmailVerificationRequired;
 
   /// Human-readable descriptor of the current security mode for logs.
@@ -41,6 +38,6 @@ class AuthConfig {
     if (isEmailVerificationRequired) {
       return 'ENFORCED (Email verification strictly mandatory)';
     }
-    return 'OPTIONAL (Configured via REQUIRE_EMAIL_VERIFICATION=false; authentic Firebase Auth token required)';
+    return 'TEST_OVERRIDE (Email verification bypassed for testing)';
   }
 }

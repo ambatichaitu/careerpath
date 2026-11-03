@@ -61,15 +61,16 @@ class _AuthGateState extends State<AuthGate> {
         final activeUser = _authService.currentUser ?? user;
 
         // State C: Authenticated but email not yet verified.
-        // Active ONLY if AuthConfig.isEmailVerificationRequired is true.
-        // When optional (default), authenticated students proceed directly to onboarding / dashboard.
+        // Strictly mandatory: unverified accounts are blocked at EmailVerificationScreen
+        // and cannot access onboarding, dashboard, or career recommendations.
+        // Google Sign-In users are automatically verified by Google's OAuth identity.
         if (!activeUser.emailVerified && AuthConfig.isEmailVerificationRequired) {
           return EmailVerificationScreen(
             onVerified: () => setState(() {}),
           );
         }
 
-        // State D: Authenticated student session loader (verified or dev-permitted)
+        // State D: Authenticated & verified student session loader
         return _StudentSessionLoader(
           key: ValueKey(activeUser.uid),
           user: activeUser,
