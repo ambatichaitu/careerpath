@@ -1,3 +1,4 @@
+import 'api_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../core/auth_config.dart';
@@ -251,6 +252,7 @@ class AuthService {
   /// Sign out the current user and clear local session state.
   Future<void> logout() async {
     try {
+      ApiService.clearSessionCache();
       await _auth.signOut();
     } catch (e) {
       debugPrint('Logout notice: $e');

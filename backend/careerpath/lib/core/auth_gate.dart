@@ -84,11 +84,13 @@ class _AuthGateState extends State<AuthGate> {
 class _SessionPayload {
   final UserProfile profile;
   final List<JobRole> roles;
+  final JobRole? selectedCareer;
   final bool needsOnboarding;
 
   _SessionPayload({
     required this.profile,
     required this.roles,
+    this.selectedCareer,
     required this.needsOnboarding,
   });
 }
@@ -149,6 +151,7 @@ class _StudentSessionLoaderState extends State<_StudentSessionLoader> {
       return _SessionPayload(
         profile: profile,
         roles: roles,
+        selectedCareer: ApiService.cachedSelectedCareer,
         needsOnboarding: false,
       );
     } catch (e) {
@@ -231,6 +234,7 @@ class _StudentSessionLoaderState extends State<_StudentSessionLoader> {
           return DashboardScreen(
             userProfile: payload.profile,
             roles: payload.roles,
+            selectedCareer: payload.selectedCareer,
           );
         }
       },

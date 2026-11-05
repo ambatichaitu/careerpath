@@ -46,6 +46,37 @@ class ApiService {
   /// Resolves the platform-aware backend base URL from AppConfig
   static String get baseUrl => AppConfig.backendBaseUrl;
 
+  // Safe In-Memory Session Caches (strictly scoped to verified Firebase UID)
+  static UserProfile? _cachedProfile;
+  static String? _cachedProfileUid;
+  static List<JobRole>? _cachedRoles;
+  static String? _cachedRolesUid;
+  static JobRole? _cachedSelectedCareer;
+  static String? _cachedSelectedCareerUid;
+  static String? _cachedProfileImageUrl;
+  static String? _cachedProfileImageUid;
+
+  /// Exposes cached selected career for fast initial UI mount
+  static JobRole? get cachedSelectedCareer {
+    final uid = _authService.currentUser?.uid;
+    if (uid != null && _cachedSelectedCareerUid == uid) {
+      return _cachedSelectedCareer;
+    }
+    return null;
+  }
+
+  /// Completely clears in-memory session caches on logout or account change.
+  static void clearSessionCache() {
+    _cachedProfile = null;
+    _cachedProfileUid = null;
+    _cachedRoles = null;
+    _cachedRolesUid = null;
+    _cachedSelectedCareer = null;
+    _cachedSelectedCareerUid = null;
+    _cachedProfileImageUrl = null;
+    _cachedProfileImageUid = null;
+  }
+
   /// Helper to generate authenticated HTTP headers with fresh Firebase ID token.
   static Future<Map<String, String>> _authHeaders({String? contentType = 'application/json'}) async {
     final headers = <String, String>{};
@@ -88,7 +119,13 @@ class ApiService {
 
   /// Retrieves the authenticated student's profile linked to their verified Firebase UID.
   /// Returns null if the student has not completed onboarding.
-  static Future<UserProfile?> getProfile() async {
+  static Future<UserProfile?> getProfile({bool forceRefresh = false}) async {
+    final currentUid = _authService.currentUser?.uid;
+    // Serve immediately from safe in-memory session cache if valid for current student
+    if (!forceRefresh && _cachedProfile != null && _cachedProfileUid == currentUid) {
+      return _cachedProfile;
+    }
+
     try {
       final headers = await _authHeaders();
       final response = await http.get(
@@ -102,7 +139,12 @@ class ApiService {
 
       _checkResponseErrors(response, 'Failed to fetch student profile.');
       final data = jsonDecode(response.body);
-      return UserProfile.fromJson(data);
+      final profile = UserProfile.fromJson(data);
+      if (currentUid != null) {
+        _cachedProfile = profile;
+        _cachedProfileUid = currentUid;
+      }
+      return profile;
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException) rethrow;
       if (e is ApiException && e.statusCode == 404) return null;
@@ -149,7 +191,17 @@ class ApiService {
       _checkResponseErrors(response, 'Failed to save student profile in database.');
       final data = jsonDecode(response.body);
       final profileData = data['profile'] as Map<String, dynamic>? ?? {};
-      return UserProfile.fromJson(profileData);
+      final savedProfile = UserProfile.fromJson(profileData);
+      
+      // Update in-memory profile cache and invalidate recommendations cache so fresh recommendations are generated
+      final currentUid = _authService.currentUser?.uid;
+      if (currentUid != null) {
+        _cachedProfile = savedProfile;
+        _cachedProfileUid = currentUid;
+        _cachedRoles = null;
+        _cachedRolesUid = null;
+      }
+      return savedProfile;
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException || e is ApiException) rethrow;
       throw ApiException('Network error saving profile: $e');
@@ -169,6 +221,11 @@ class ApiService {
         }),
       );
       _checkResponseErrors(response, 'Failed to update skills.');
+      _cachedRoles = null;
+      _cachedRolesUid = null;
+      if (_cachedProfile != null) {
+        _cachedProfile = _cachedProfile!.copyWith(skills: skills);
+      }
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException || e is ApiException) rethrow;
       throw ApiException('Error updating skills: $e');
@@ -185,6 +242,11 @@ class ApiService {
         body: jsonEncode({'interests': interests}),
       );
       _checkResponseErrors(response, 'Failed to update career interests.');
+      _cachedRoles = null;
+      _cachedRolesUid = null;
+      if (_cachedProfile != null && interests.isNotEmpty) {
+        _cachedProfile = _cachedProfile!.copyWith(interestDomain: interests.first);
+      }
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException || e is ApiException) rethrow;
       throw ApiException('Error updating interests: $e');
@@ -214,13 +276,27 @@ class ApiService {
   }
 
   // 2. Recommend Roles (Protected Endpoint)
-  static Future<List<JobRole>> recommendRoles(UserProfile profile) async {
+  static Future<List<JobRole>> recommendRoles(UserProfile profile, {bool forceRefresh = false}) async {
+    final currentUid = _authService.currentUser?.uid;
+    if (!forceRefresh && _cachedRoles != null && _cachedRolesUid == currentUid && _cachedRoles!.isNotEmpty) {
+      return _cachedRoles!;
+    }
+
     try {
       // First attempt the Stage 5 authenticated recommendations endpoint
       try {
         final recData = await getRecommendations(domain: profile.interestDomain);
         final recRoles = recData['roles'] as List<JobRole>?;
         if (recRoles != null && recRoles.isNotEmpty) {
+          if (currentUid != null) {
+            _cachedRoles = recRoles;
+            _cachedRolesUid = currentUid;
+            final target = recData['selected_career'] as JobRole?;
+            if (target != null) {
+              _cachedSelectedCareer = target;
+              _cachedSelectedCareerUid = currentUid;
+            }
+          }
           return recRoles;
         }
       } catch (_) {
@@ -243,7 +319,12 @@ class ApiService {
 
       final data = jsonDecode(response.body);
       final list = (data['roles'] as List<dynamic>?) ?? [];
-      return list.map((e) => JobRole.fromJson(e)).toList();
+      final roles = list.map((e) => JobRole.fromJson(e)).toList();
+      if (currentUid != null) {
+        _cachedRoles = roles;
+        _cachedRolesUid = currentUid;
+      }
+      return roles;
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException || e is ApiException) rethrow;
       throw ApiException('Error loading career roles: $e');
@@ -402,6 +483,8 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
 
       _checkResponseErrors(response, 'Failed to upload profile picture.');
+      _cachedProfileImageUrl = null;
+      _cachedProfileImageUid = null;
       return jsonDecode(response.body) as Map<String, dynamic>;
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException || e is ApiException) rethrow;
@@ -410,7 +493,12 @@ class ApiService {
   }
 
   /// Retrieves short-lived signed URL for student's profile picture, or null if none set.
-  static Future<String?> getProfileImageUrl() async {
+  static Future<String?> getProfileImageUrl({bool forceRefresh = false}) async {
+    final currentUid = _authService.currentUser?.uid;
+    if (!forceRefresh && _cachedProfileImageUrl != null && _cachedProfileImageUid == currentUid) {
+      return _cachedProfileImageUrl;
+    }
+
     try {
       final headers = await _authHeaders();
       final response = await http.get(
@@ -421,7 +509,12 @@ class ApiService {
       if (response.statusCode == 404) return null;
       _checkResponseErrors(response, 'Failed to load profile picture.');
       final data = jsonDecode(response.body);
-      return data['image_url'] as String?;
+      final url = data['image_url'] as String?;
+      if (currentUid != null) {
+        _cachedProfileImageUrl = url;
+        _cachedProfileImageUid = currentUid;
+      }
+      return url;
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException) rethrow;
       if (e is ApiException && e.statusCode == 404) return null;
@@ -439,6 +532,8 @@ class ApiService {
       );
 
       _checkResponseErrors(response, 'Failed to remove profile picture.');
+      _cachedProfileImageUrl = null;
+      _cachedProfileImageUid = null;
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException || e is ApiException) rethrow;
       throw ApiException('Error removing profile picture: $e');
@@ -512,7 +607,13 @@ class ApiService {
       );
 
       _checkResponseErrors(response, 'Failed to save target career selection.');
-      return jsonDecode(response.body) as Map<String, dynamic>;
+      final res = jsonDecode(response.body) as Map<String, dynamic>;
+      final currentUid = _authService.currentUser?.uid;
+      if (currentUid != null && res['selected_career'] != null && res['selected_career'] is Map<String, dynamic>) {
+        _cachedSelectedCareer = JobRole.fromJson(res['selected_career'] as Map<String, dynamic>);
+        _cachedSelectedCareerUid = currentUid;
+      }
+      return res;
     } catch (e) {
       if (e is UnauthorizedException || e is ForbiddenException || e is ApiException) rethrow;
       throw ApiException('Error selecting career path: $e');

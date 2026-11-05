@@ -3,6 +3,8 @@ import sys
 import logging
 import uuid
 from typing import Optional, Dict, Any, List
+import time
+import concurrent.futures
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -127,6 +129,34 @@ def check_db_health() -> Dict[str, Any]:
         }
 
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# In-Memory Session Cache for Student Profiles (TTL-based)
+# -----------------------------------------------------------------------------
+_profile_cache: Dict[str, Dict[str, Any]] = {}
+_PROFILE_CACHE_TTL_SECONDS = 60
+
+def clear_profile_cache(firebase_uid: Optional[str] = None):
+    """Explicitly clears the in-memory profile cache for a student or globally."""
+    if firebase_uid:
+        _profile_cache.pop(firebase_uid, None)
+    else:
+        _profile_cache.clear()
+
+def _get_cached_profile(firebase_uid: str) -> Optional[Dict[str, Any]]:
+    if not firebase_uid:
+        return None
+    entry = _profile_cache.get(firebase_uid)
+    if entry and (time.time() - entry.get("timestamp", 0)) < _PROFILE_CACHE_TTL_SECONDS:
+        return dict(entry["profile"])
+    return None
+
+def _cache_profile(firebase_uid: str, profile: Dict[str, Any]):
+    if firebase_uid and profile:
+        _profile_cache[firebase_uid] = {
+            "timestamp": time.time(),
+            "profile": dict(profile)
+        }
+
 # Student Profile Operations (Strictly mapped to verified Firebase UID)
 # -----------------------------------------------------------------------------
 def get_student_profile(firebase_uid: str) -> Optional[Dict[str, Any]]:
@@ -134,15 +164,23 @@ def get_student_profile(firebase_uid: str) -> Optional[Dict[str, Any]]:
     if not firebase_uid:
         return None
 
+    # Check safe in-memory session cache first to eliminate repeated network calls
+    cached = _get_cached_profile(firebase_uid)
+    if cached is not None:
+        return cached
+
     client = get_supabase_client()
     if client is not None:
         try:
             res = client.table("student_profiles").select("*").eq("firebase_uid", firebase_uid).execute()
             if res.data and len(res.data) > 0:
                 profile = dict(res.data[0])
+                
                 profile["student_skills"] = get_student_skills(firebase_uid)
                 profile["interests"] = get_student_interests(firebase_uid)
+
                 profile["profile_image_file_id"] = profile.get("profile_image_file_id")
+                _cache_profile(firebase_uid, profile)
                 return profile
             return None
         except Exception as e:
@@ -163,6 +201,8 @@ def upsert_student_profile(firebase_uid: str, data: Dict[str, Any]) -> Dict[str,
     """Upserts student profile data for verified Firebase UID."""
     if not firebase_uid:
         raise ValueError("firebase_uid is required")
+
+    clear_profile_cache(firebase_uid)
 
     now_iso = datetime.now(timezone.utc).isoformat()
     record = {
@@ -254,6 +294,7 @@ def get_student_skills(firebase_uid: str) -> List[str]:
 
 def set_student_skills(firebase_uid: str, skills: List[str], confirmation_source: str = "manual") -> bool:
     """Updates/replaces student skills in normalized tables."""
+    clear_profile_cache(firebase_uid)
     clean_skills = [s.strip() for s in skills if s and s.strip()]
     client = get_supabase_client()
     if client is not None:
@@ -311,6 +352,7 @@ def get_student_interests(firebase_uid: str) -> List[str]:
 
 def set_student_interests(firebase_uid: str, domains: List[str]) -> bool:
     """Updates/replaces career domain interests for a student."""
+    clear_profile_cache(firebase_uid)
     clean_domains = [d.strip() for d in domains if d and d.strip()]
     client = get_supabase_client()
     if client is not None:
@@ -460,6 +502,7 @@ def delete_file_record(file_id: str, firebase_uid: str) -> bool:
 
 def set_profile_image(firebase_uid: str, file_id: Optional[str]) -> bool:
     """Updates student profile pointer to active profile image."""
+    clear_profile_cache(firebase_uid)
     client = get_supabase_client()
     if client is not None:
         try:

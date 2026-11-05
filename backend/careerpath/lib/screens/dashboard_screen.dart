@@ -13,11 +13,13 @@ import 'onboarding_wizard_screen.dart';
 class DashboardScreen extends StatefulWidget {
   final UserProfile userProfile;
   final List<JobRole> roles;
+  final JobRole? selectedCareer;
 
   const DashboardScreen({
     super.key,
     required this.userProfile,
     required this.roles,
+    this.selectedCareer,
   });
 
   @override
@@ -38,8 +40,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _allRoles = List.from(widget.roles);
     _filteredRoles = List.from(_allRoles);
+    _selectedCareer = widget.selectedCareer ?? ApiService.cachedSelectedCareer;
     _loadProfileImage();
-    _fetchFreshRecommendations();
+
+    // Re-use recommendations already fetched by session loader; only fetch if empty
+    if (_allRoles.isEmpty) {
+      _fetchFreshRecommendations();
+    }
   }
 
   Future<void> _fetchFreshRecommendations() async {

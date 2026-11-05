@@ -574,14 +574,14 @@ def get_career_recommendations(
             detail="Student profile not found. Please complete onboarding first."
         )
 
-    # Authoritative student skills & interests from Supabase
-    skills = get_student_skills(auth_user.uid)
+    # Authoritative student skills & interests (reusing profile data to eliminate duplicate Supabase queries)
+    skills = profile.get("student_skills") or profile.get("skills") or []
     if not skills:
-        skills = profile.get("student_skills", []) or profile.get("skills", [])
+        skills = get_student_skills(auth_user.uid)
 
-    interests = get_student_interests(auth_user.uid)
+    interests = profile.get("interests") or []
     if not interests:
-        interests = profile.get("interests", [])
+        interests = get_student_interests(auth_user.uid)
 
     raw_year = profile.get("academic_year", 1)
     try:
@@ -710,9 +710,9 @@ def get_role_skill_gap_analysis(
         )
 
     profile = get_student_profile(auth_user.uid)
-    skills = get_student_skills(auth_user.uid)
-    if not skills and profile:
-        skills = profile.get("student_skills", []) or profile.get("skills", [])
+    skills = profile.get("student_skills") or profile.get("skills") or [] if profile else []
+    if not skills:
+        skills = get_student_skills(auth_user.uid)
 
     raw_year = profile.get("academic_year", 1) if profile else 1
     try:
